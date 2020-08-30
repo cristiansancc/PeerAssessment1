@@ -1,0 +1,132 @@
+---
+title: "Course_Project_1"
+output: html_document
+---
+
+## Unzipping, loading and reading data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+unzip("activity.zip")
+activity <- fread("activity.csv")
+head(activity)
+```
+
+## Number of steps per day
+
+1- Total number of steps taken per day
+
+```{r}
+steps <- aggregate(activity$steps, by = list(date  = activity$date), FUN = sum)
+head(steps)
+```
+
+2- Histogram of the total number of steps taken each day
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(na.omit(steps), aes(x = x)) +
+    geom_histogram(fill = "royalblue1", binwidth = 500) +
+    labs(x = "steps", y = "frequency")
+```
+
+3- Mean and median of the total number of steps taken per day
+
+```{r}
+data_mm <- data.table("mean" = mean(steps$x, na.rm = TRUE), "median" = median(steps$x,  na.rm = TRUE))
+data_mm
+```
+
+## Average daily activity pattern
+
+1- Time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+series <- aggregate(activity$steps, by = list(date  = activity$date, interval = activity$interval), FUN=  mean)
+data_int <- as.data.frame.table( tapply(series$x, series$interval, mean, na.rm = TRUE))
+colnames(data_int) = c("interval", "steps")
+data_int$interval <- as.numeric(as.character(data_int$interval))
+
+ggplot(data_int, aes(x = interval , y = steps, group = 1)) + 
+  geom_line(color = "royalblue1", size = 1) + 
+  labs(x = "interval", y = "average steps per day")
+```
+
+2- 5-minute interval, on average across all the days in the dataset, with the maximum number of steps
+
+```{r}
+data_int <- as.data.table(data_int)
+data_int[steps == max(data_int$steps), 1]
+```
+
+## Imputing missing values
+
+1- Total number of missing values in the datase
+
+```{r}
+activity[is.na(steps), .N]
+```
+
+2- Filling the missing values in the dataset (using the mean for that day)
+
+```{r}
+activity[is.na(steps), "steps"] <- activity[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps")]
+```
+
+3- New dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r}
+activity <- fread("activity.csv")
+```
+
+4- Histogram of the total number of steps taken each day and the mean and median of the total number of steps taken per day
+
+```{r}
+activity2 <- fread("activity_filled.csv")
+steps2 <- aggregate(activity2$steps, by = list(date  = activity2$date), FUN = sum)
+
+ggplot(steps2, aes(x = x)) + 
+  geom_histogram(fill = "royalblue1", binwidth = 500) +
+  labs(x = "steps", y = "frequency")
+```
+
+Mean and median
+
+```{r}
+data_mm2 <- data.table("mean" = mean(steps2$x, na.rm = TRUE), "median" = median(steps2$x,  na.rm = TRUE))
+data_mm2
+```
+
+The imputing of missing data slightly ltered the original mean and median
+
+## Differences in activity patterns between weekdays and weekends
+
+1- Creating a new factor variable in the dataset with two levels – “weekday” and “weekend”
+
+```{r}
+activity2[, date := as.POSIXct(date, format = "%Y-%m-%d")]
+activity2[, "day"] <- weekdays(activity2$date)
+week <- activity2$day
+week <- ifelse(week == c("sabado", "domingo"), "weekend", "weekday")
+activity2[, "weekend"] <- week
+head(activity2)
+```
+
+2- Plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days
+
+```{r}
+series2 <- aggregate(activity2$steps, by = list(interval  = activity2$interval, weekend = activity2$weekend), FUN =  mean)
+
+ggplot(series2 , aes(x = interval , y = x, color = weekend)) + 
+  geom_line() + 
+  labs(x = "interval", y = "average steps per day") + 
+  facet_wrap(~weekend , ncol = 1, nrow = 2)
+```
+
